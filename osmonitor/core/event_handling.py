@@ -8,12 +8,46 @@ import json
 import logging
 from datetime import datetime
 import threading
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from osmonitor.core.events import UIEvent
 from osmonitor.utils.accessibility import clean_accessibility_value
 
 logger = logging.getLogger(__name__)
+
+def has_state_changed(current_state: Dict[str, Any], previous_state: Dict[str, Any]) -> bool:
+    """
+    Compare two state dictionaries to determine if there has been a meaningful change.
+    
+    Args:
+        current_state: The current state dictionary
+        previous_state: The previous state dictionary
+        
+    Returns:
+        bool: True if there has been a meaningful change, False otherwise
+    """
+    # If either state is None, consider it a change
+    if not current_state or not previous_state:
+        return True
+        
+    # Check app changes
+    current_app = current_state.get('app', {})
+    previous_app = previous_state.get('app', {})
+    if current_app.get('pid') != previous_app.get('pid'):
+        return True
+        
+    # Check window changes
+    if current_state.get('window_title') != previous_state.get('window_title'):
+        return True
+        
+    # Check focused element changes
+    current_element = current_state.get('element', {})
+    previous_element = previous_state.get('element', {})
+    if current_element.get('id') != previous_element.get('id'):
+        return True
+        
+    # No significant changes detected
+    return False
 
 def add_event(self_obj, event: UIEvent):
     """Add an event to the history and notify callbacks.

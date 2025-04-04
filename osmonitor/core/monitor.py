@@ -32,7 +32,8 @@ from osmonitor.core.event_handling import (
     add_event,
     log_ui_event,
     notify_callbacks,
-    write_to_timeline
+    write_to_timeline,
+    has_state_changed
 )
 
 from osmonitor.core.events import UIEvent
@@ -101,6 +102,9 @@ class MacOSUIMonitor:
         self.is_traversing = False
         self.should_cancel_traversal = False
         self.named_pipe_handle = None  # For IPC
+        
+        # For state change tracking - only log events when state changes
+        self.previous_state = None
         
         self.ui_events = []
         self.history_size = history_size
@@ -224,8 +228,20 @@ class MacOSUIMonitor:
     def _update_ui_state(self):
         """Update the current UI state."""
         try:
-            # Use the enhanced monitoring approach
-            self._monitor_current_application()
+            # Get the current state before any updates
+            current_state = self.get_current_state()
+            
+            # Check if there's been a meaningful state change
+            if has_state_changed(current_state, self.previous_state):
+                logger.debug("State change detected, updating UI state")
+                # Store the new state for next comparison
+                self.previous_state = current_state
+                
+                # Use the enhanced monitoring approach - this will log events
+                self._monitor_current_application()
+            else:
+                # No meaningful change, skip logging events
+                logger.debug("No significant state change detected, skipping event logging")
         except Exception as e:
             logger.error(f"Error in _monitor_current_application: {e}")
             
@@ -242,9 +258,17 @@ class MacOSUIMonitor:
                 app_name = frontmost_app["name"]
                 method = frontmost_app.get("method", "Unknown")
                 
-                logger.debug(f"Found frontmost app: {app_name} (PID: {app_pid}) via {method}")
+                # Get the current state for comparison
+                current_state = {
+                    'app': {
+                        'name': app_name,
+                        'pid': app_pid
+                    }
+                }
                 
-                if self.current_app_pid != app_pid:
+                # Check if there's been an app change
+                app_changed = (self.current_app_pid != app_pid)
+                if app_changed:
                     # App has changed
                     old_app_name = None
                     if self.current_app:
@@ -284,38 +308,47 @@ class MacOSUIMonitor:
                 except Exception as e:
                     logger.debug(f"Error getting windows from UI element: {e}")
                 
+                window_changed = False
+                window_title = "Unknown Window"
+                
                 # If no windows found via accessibility API, try AppleScript
                 if not windows:
                     window_names = self._get_windows_for_app(app_pid)
                     if window_names:
-                        logger.info(f"Found {len(window_names)} windows via AppleScript: {window_names}")
-                        
                         # Use the first window name
-                        window_name = window_names[0] if window_names else "Unknown Window"
+                        window_title = window_names[0] if window_names else "Unknown Window"
+                        current_state['window_title'] = window_title
                         
-                        # Create a synthetic window change event
-                        old_window_name = "Unknown" if self.current_window is None else "Previous Window"
+                        # Check if window has changed
+                        old_window_title = "Unknown" if self.current_window is None else "Previous Window"
+                        window_changed = (self.current_window is None or 
+                                         (hasattr(self.current_window, 'window_title') and 
+                                          self.current_window.window_title != window_title))
                         
-                        # Add window change event
-                        self._add_event(UIEvent(
-                            "window_change",
-                            time.time(),
-                            old_window=old_window_name,
-                            new_window=window_name,
-                            method="AppleScript"
-                        ))
-                        
-                        logger.info(f"Window changed to: {window_name} (via AppleScript)")
-                        
-                        # Clear current window since we can't get a real window element
-                        self.current_window = None
+                        if app_changed or window_changed:
+                            # Add window change event
+                            self._add_event(UIEvent(
+                                "window_change",
+                                time.time(),
+                                old_window=old_window_title,
+                                new_window=window_title,
+                                method="AppleScript"
+                            ))
+                            
+                            logger.info(f"Window changed to: {window_title} (via AppleScript)")
+                            
+                            # Clear current window since we can't get a real window element
+                            self.current_window = None
                 
                 # If windows were found via accessibility API, use the first one
                 elif windows and len(windows) > 0:
                     # The first window is usually the frontmost
                     new_window = MacOSUIElement(windows[0])
                     
-                    if self.current_window is None or new_window.id() != self.current_window.id():
+                    # Check if window has changed
+                    window_changed = (self.current_window is None or new_window.id() != self.current_window.id())
+                    
+                    if app_changed or window_changed:
                         old_window_title = "Unknown"
                         if self.current_window:
                             try:
@@ -334,6 +367,8 @@ class MacOSUIMonitor:
                             pass
                         
                         self.current_window = new_window
+                        window_title = new_window_title
+                        current_state['window_title'] = window_title
                         
                         # Add window change event
                         self._add_event(UIEvent(
@@ -347,15 +382,20 @@ class MacOSUIMonitor:
                         logger.info(f"Window changed to: {new_window_title}")
                 
                 # Get focused element if we have a current app
+                element_changed = False
                 if self.current_app:
                     try:
                         focused_element = self.current_app.element.get_attribute("AXFocusedUIElement")
                         if focused_element:
                             new_element = MacOSUIElement(ThreadSafeAXUIElement(focused_element))
                             
-                            if self.current_element is None or new_element.id() != self.current_element.id():
+                            # Check if element has changed
+                            element_changed = (self.current_element is None or new_element.id() != self.current_element.id())
+                            
+                            if app_changed or window_changed or element_changed:
                                 self.current_element = new_element
                                 element_info = ElementInfo(new_element)
+                                current_state['element'] = element_info.to_dict()
                                 
                                 # Add focus change event
                                 self._add_event(UIEvent(
@@ -367,6 +407,9 @@ class MacOSUIMonitor:
                                 logger.info(f"Focus changed to: {element_info}")
                     except Exception as e:
                         logger.debug(f"Error getting focused element: {e}")
+                        
+                # Update previous state with the current state
+                self.previous_state = current_state
     
     def _polling_loop(self):
         """Background thread that polls the UI state regularly."""
@@ -579,12 +622,29 @@ class MacOSUIMonitor:
         # Get window name
         window_name = self._get_focused_window_name(app)
         
-        # Log application focus change
-        self._log_ui_event("app_focus", {
-            "app": app_name, 
-            "window": window_name, 
-            "pid": app.get('pid', 'unknown')
-        })
+        # Check if app or window has changed from previous state
+        app_changed = False
+        window_changed = False
+        
+        if self.previous_state:
+            prev_app = self.previous_state.get('app', {})
+            prev_app_pid = prev_app.get('pid')
+            prev_window = self.previous_state.get('window_title')
+            
+            app_changed = (prev_app_pid != app.get('pid'))
+            window_changed = (prev_window != window_name)
+        else:
+            # If no previous state, consider it a change
+            app_changed = True
+            window_changed = True
+            
+        # Log application focus change only if it changed
+        if app_changed:
+            self._log_ui_event("app_focus", {
+                "app": app_name, 
+                "window": window_name, 
+                "pid": app.get('pid', 'unknown')
+            })
         
         # Initialize data structures for this app/window
         with self.lock:
@@ -605,7 +665,7 @@ class MacOSUIMonitor:
             time_diff = (datetime.now() - window_state.timestamp).total_seconds()
             is_window_recent = time_diff < 300  # 5 minutes
             
-            if is_window_recent:
+            if is_window_recent and window_changed:
                 self._log_ui_event("window_revisit", {
                     "app": app_name,
                     "window": window_name,
@@ -613,10 +673,11 @@ class MacOSUIMonitor:
                 })
         else:
             is_window_recent = False
-            self._log_ui_event("window_new", {
-                "app": app_name,
-                "window": window_name
-            })
+            if window_changed:
+                self._log_ui_event("window_new", {
+                    "app": app_name,
+                    "window": window_name
+                })
         
         # Decide how to get UI information based on available APIs
         if HAS_APPKIT and 'pid' in app:
@@ -626,31 +687,34 @@ class MacOSUIMonitor:
             
             # Traverse UI elements if needed
             if not window_exists or not is_window_recent:
-                self._log_ui_event("traversal_start", {
-                    "app": app_name,
-                    "window": window_name,
-                    "reason": "new window" if not window_exists else "window data expired"
-                })
+                if app_changed or window_changed:
+                    self._log_ui_event("traversal_start", {
+                        "app": app_name,
+                        "window": window_name,
+                        "reason": "new window" if not window_exists else "window data expired"
+                    })
                 self._traverse_ui_elements(ax_app, app_name, window_name)
             else:
                 logger.info(f"Reusing existing UI elements for {app_name}")
-                self._log_ui_event("traversal_skip", {
-                    "app": app_name,
-                    "window": window_name,
-                    "reason": "recent data available"
-                })
+                if app_changed or window_changed:
+                    self._log_ui_event("traversal_skip", {
+                        "app": app_name,
+                        "window": window_name,
+                        "reason": "recent data available"
+                    })
                 
             # Set up accessibility notifications
             self._setup_accessibility_notifications(app['pid'], ax_app, app_name, window_name)
         else:
             # Use AppleScript fallback approach
             logger.info(f"Using AppleScript fallback for {app_name}, window: {window_name}")
-            self._log_ui_event("fallback_mode", {
-                "app": app_name,
-                "window": window_name,
-                "method": "AppleScript",
-                "reason": "PyObjC not available" if not HAS_APPKIT else "PID not available"
-            })
+            if app_changed or window_changed:
+                self._log_ui_event("fallback_mode", {
+                    "app": app_name,
+                    "window": window_name,
+                    "method": "AppleScript",
+                    "reason": "PyObjC not available" if not HAS_APPKIT else "PID not available"
+                })
             self._get_ui_data_via_applescript(app_name, window_name)
     
     def _get_ui_data_via_applescript(self, app_name, window_name):

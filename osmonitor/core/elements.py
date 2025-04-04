@@ -4,10 +4,74 @@ This module provides the ElementInfo class for representing UI elements.
 """
 
 import logging
+import uuid
+from datetime import datetime
+from typing import Dict, List, Optional, Any, Set
+from dataclasses import dataclass, field
+
 from osmonitor.utils.accessibility import clean_accessibility_value
 from macos_accessibility import ThreadSafeAXUIElement, MacOSUIElement
 
 logger = logging.getLogger(__name__)
+
+@dataclass
+class ElementAttributes:
+    """Represents a UI element with attributes and hierarchy information."""
+    element_ref: Any  # Reference to the accessibility element (may be None)
+    path: str  # Path to the element in the UI hierarchy
+    attributes: Dict[str, Any]  # Element attributes
+    depth: int  # Depth in the UI hierarchy
+    x: float  # X coordinate
+    y: float  # Y coordinate
+    width: float  # Width
+    height: float  # Height
+    children: List[str] = field(default_factory=list)  # List of child element identifiers
+    
+    def __post_init__(self):
+        # Generate a unique identifier for this element
+        self.identifier = str(uuid.uuid4())
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to a serializable dictionary."""
+        return {
+            "id": self.identifier,
+            "path": self.path,
+            "attributes": self.attributes,
+            "depth": self.depth,
+            "position": {"x": self.x, "y": self.y},
+            "size": {"width": self.width, "height": self.height},
+            "children": self.children
+        }
+
+@dataclass
+class WindowState:
+    """Represents the state of a window with its UI elements."""
+    elements: Dict[str, ElementAttributes] = field(default_factory=dict)
+    timestamp: datetime = field(default_factory=datetime.now)
+    initial_traversal_at: Optional[datetime] = None
+    text_output: str = ""
+
+@dataclass
+class WindowIdentifier:
+    """Identifies a window uniquely."""
+    app: str
+    window: str
+    
+    def __hash__(self):
+        return hash((self.app, self.window))
+    
+    def __eq__(self, other):
+        if not isinstance(other, WindowIdentifier):
+            return False
+        return self.app == other.app and self.window == other.window
+
+@dataclass
+class UIFrame:
+    """Represents a UI frame for sending through a pipe."""
+    window: str
+    app: str
+    text_output: str
+    initial_traversal_at: str
 
 class ElementInfo:
     """Information about a UI element."""

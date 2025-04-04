@@ -9,6 +9,18 @@ A tool for monitoring and logging UI events on macOS, including keyboard input, 
 - Timeline generation in JSON or CSV format
 - Detailed logging options
 
+## TODOs
+
+1. **Timeline Condensing**: Detect typing sequences and condense them into a single 'typed_text' event rather than logging each keystroke separately
+   
+2. **Screenshot Element Extraction**: Crop areas around the mouse position to capture the most important UI element (button, tab, text field, etc.)
+
+3. **OCR Support**: Add optical character recognition capabilities for extracting text from captured screenshots
+
+4. **App Detection from Images**: Implement application identification directly from screenshots
+
+5. **Functionality Analysis**: Add web search + LLM capabilities to determine and summarize the functionality of detected applications
+
 ## Installation
 
 ```bash

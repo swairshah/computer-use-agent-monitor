@@ -219,3 +219,47 @@ def run_apple_script(self_obj, script):
     except Exception as e:
         logger.debug(f"Error running AppleScript: {e}")
         return None
+
+def get_app_detailed_info(self_obj, app_info):
+    """Get detailed window/content information for any application."""
+    pid = app_info['pid']
+    
+    # First try getting all windows for the app
+    windows = get_windows_for_app(self_obj, pid)
+    
+    # Try getting more detailed info about the active window
+    script = f"""
+    tell application "System Events"
+        set frontApp to first process whose unix id is {pid}
+        try
+            set props to properties of frontApp
+            set winInfo to {{}}
+            
+            if (count of windows of frontApp) > 0 then
+                set frontWin to window 1 of frontApp
+                set winTitle to name of frontWin
+                set winSize to size of frontWin
+                set winPos to position of frontWin
+                
+                # Try to get focused element
+                set focusedElement to value of attribute "AXFocusedUIElement" of frontWin
+                if focusedElement is not missing value then
+                    set focusedValue to value of focusedElement
+                    set focusedRole to role of focusedElement
+                    return {{winTitle, winSize, winPos, focusedValue, focusedRole}}
+                end if
+                
+                return {{winTitle, winSize, winPos}}
+            end if
+        end try
+    end tell
+    """
+    
+    active_window_info = run_apple_script(self_obj, script)
+    
+    return {
+        "windows": windows,
+        "active_window": active_window_info,
+        "pid": pid,
+        "name": app_info["name"]
+    }

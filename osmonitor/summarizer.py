@@ -13,9 +13,13 @@ from PIL import Image
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext, BinaryContent
 
-import logfire 
-logfire.configure()
-logfire.instrument_pydantic_ai()
+try: 
+    import logfire 
+    logfire.configure()
+    logfire.instrument_pydantic_ai()
+except ImportError:
+    print("Logfire not found. Skipping instrumentation.")
+    pass
 
 class TimelineEvent(BaseModel):
     timestamp: float

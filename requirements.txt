@@ -1,9 +1,12 @@
 fastapi>=0.104.1
 uvicorn>=0.24.0
 pydantic>=2.4.2
+pydantic-ai>=0.4.0
 pyobjc-core>=10.0
 pyobjc-framework-Cocoa>=10.0
 pyobjc-framework-Quartz>=10.0
 python-dateutil>=2.8.2
 pyobjc
 pytest
+pynput==1.8.1
+pillow==11.2.1

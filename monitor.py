@@ -5,7 +5,11 @@ import time
 from datetime import datetime
 from pynput import mouse, keyboard
 from PIL import ImageGrab, Image
-import tkinter as tk
+import sys
+
+# Import accessibility permission checker
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from osmonitor.utils.accessibility import check_accessibility_permissions
 
 SAVE_DIR = "./screenshots"
 EVENT_LOG_FILE = "./timeline.json"
@@ -17,11 +21,18 @@ with open(EVENT_LOG_FILE, "w") as f:
 key_buffer = ""
 
 def get_screen_dimensions():
-    root = tk.Tk()
-    screen_width = root.winfo_screenwidth()
-    screen_height = root.winfo_screenheight()
-    root.destroy()
-    return screen_width, screen_height
+    # Get screen dimensions using PIL instead of tkinter
+    img = ImageGrab.grab()
+    return img.width, img.height
+
+# Request accessibility permissions once at startup
+has_permissions = check_accessibility_permissions(show_prompt=True)
+if not has_permissions:
+    print("⚠️  Please grant accessibility permissions in System Preferences")
+    print("   Go to System Preferences > Security & Privacy > Privacy > Accessibility")
+    print("   Add and enable your terminal application (e.g., Terminal, iTerm2, or Ghostty)")
+    print("   This is required for monitoring foreground applications")
+    input("Press Enter to continue after granting permissions...")
 
 SCREEN_WIDTH, SCREEN_HEIGHT = get_screen_dimensions()
 

@@ -9,6 +9,18 @@ A tool for monitoring and logging UI events on macOS, including keyboard input, 
 - Timeline generation in JSON or CSV format
 - Detailed logging options
 
+## Features
+
+1. **Activity Timeline**: Records UI events in chronological order with timestamps
+
+2. **Screenshot Capture**: Takes screenshots when clicks, keystrokes, or scroll events occur
+
+3. **Activity Summarization**: Uses Pydantic AI agents to analyze computer use patterns and generate summaries
+
+4. **Screenshot Analysis**: Leverages vision-capable AI models to extract information from screenshots
+
+5. **Application Usage Tracking**: Monitors which applications are active and for how long
+
 ## TODOs
 
 1. **Timeline Condensing**: Detect typing sequences and condense them into a single 'typed_text' event rather than logging each keystroke separately
@@ -16,10 +28,6 @@ A tool for monitoring and logging UI events on macOS, including keyboard input, 
 2. **Screenshot Element Extraction**: Crop areas around the mouse position to capture the most important UI element (button, tab, text field, etc.)
 
 3. **OCR Support**: Add optical character recognition capabilities for extracting text from captured screenshots
-
-4. **App Detection from Images**: Implement application identification directly from screenshots
-
-5. **Functionality Analysis**: Add web search + LLM capabilities to determine and summarize the functionality of detected applications
 
 ## Installation
 
@@ -52,25 +60,6 @@ osmonitor --timeline-format csv
 
 ## Project Structure
 
-```
-osmonitor/
-├── __init__.py         # Package exports
-├── cli.py              # Command line interface
-├── core/
-│   ├── __init__.py
-│   ├── elements.py     # UI element handling
-│   ├── events.py       # Event classes
-│   ├── keyboard_monitor.py # Keyboard monitoring
-│   ├── monitor.py      # Main monitor class
-│   ├── mouse_monitor.py # Mouse monitoring
-│   ├── screenshot.py   # Screenshot utilities
-│   └── text_selection.py # Text selection monitoring
-└── utils/
-    ├── __init__.py
-    ├── accessibility.py # Accessibility utilities
-    └── key_mapping.py   # Keyboard mapping utilities
-```
-
 ## Requirements
 
 - macOS 10.15 or later
@@ -78,7 +67,23 @@ osmonitor/
 - PyObjC
 - pynput
 
-## Permissions
+## macOS Permissions Required
 
-This tool requires accessibility permissions to function properly. 
-Give the Accessibility permissions to the terminal you invoke the tool from.
+This tool requires macOS accessibility permissions to function properly:
+
+### One-time Setup (Recommended)
+
+1. Go to **System Preferences** > **Security & Privacy** > **Privacy** > **Accessibility**
+2. Add your terminal application (Terminal, iTerm2, Ghostty, etc.) to the list
+3. Make sure the checkbox next to your terminal is enabled
+
+This one-time setup will prevent multiple permission prompts when running the monitor.
+
+### Why Does This Need Permissions?
+
+The monitor uses macOS Accessibility and AppleScript APIs to:
+- Detect the foreground application and window title
+- Capture keyboard and mouse events
+- Take screenshots when events occur
+
+Without these permissions, you'll get permission prompts for each application the monitor interacts with.

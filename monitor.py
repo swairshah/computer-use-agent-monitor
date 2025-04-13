@@ -2,6 +2,7 @@ import os
 import subprocess
 import json
 import time
+import argparse
 from datetime import datetime
 from pynput import mouse, keyboard
 from PIL import ImageGrab, Image
@@ -11,9 +12,28 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from osmonitor.utils.accessibility import check_accessibility_permissions
 
+# Default paths
 SAVE_DIR = "./screenshots"
 EVENT_LOG_FILE = "./timeline.json"
+
+# Parse command line arguments
+def parse_args():
+    parser = argparse.ArgumentParser(description="Monitor UI events and take screenshots")
+    parser.add_argument('--save-dir', type=str, default=SAVE_DIR, 
+                       help="Directory to save screenshots (default: ./screenshots)")
+    parser.add_argument('--log-file', type=str, default=EVENT_LOG_FILE,
+                       help="File to save event log (default: ./timeline.json)")
+    return parser.parse_args()
+
+# Get command line arguments
+args = parse_args()
+SAVE_DIR = args.save_dir
+EVENT_LOG_FILE = args.log_file
+
+# Create screenshots directory and empty log file
 os.makedirs(SAVE_DIR, exist_ok=True)
+print(f"Screenshots will be saved to: {SAVE_DIR}")
+print(f"Events will be logged to: {EVENT_LOG_FILE}")
 
 with open(EVENT_LOG_FILE, "w") as f:
     f.write("")

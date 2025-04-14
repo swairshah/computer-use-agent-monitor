@@ -7,19 +7,17 @@ A tool for monitoring and logging UI events on macOS, including keyboard input, 
 - Capture screenshots on click events
 - Record text selections
 - Timeline generation in JSON or CSV format
-- Detailed logging options
 
-## Features
+### Summarizer Agent 
 
-1. **Activity Timeline**: Records UI events in chronological order with timestamps
+agent takes the generated timeline and creates a summary of your activity.
 
-2. **Screenshot Capture**: Takes screenshots when clicks, keystrokes, or scroll events occur
+## Usage:
 
-3. **Activity Summarization**: Uses Pydantic AI agents to analyze computer use patterns and generate summaries
+Run monitor.py which will create timeline.json and screenshots directory.
+Run summarizer.py on it, which will create a summary of your activity. 
 
-4. **Screenshot Analysis**: Leverages vision-capable AI models to extract information from screenshots
-
-5. **Application Usage Tracking**: Monitors which applications are active and for how long
+make sure you have ANTHROPIC_API_KEY in environment (pydantic agent will use it for summarizing)
 
 ## TODOs
 
@@ -29,49 +27,9 @@ A tool for monitoring and logging UI events on macOS, including keyboard input, 
 
 3. **OCR Support**: Add optical character recognition capabilities for extracting text from captured screenshots
 
-## Installation
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Install the package in development mode
-pip install -e .
-```
-
-## Usage
-
-```bash
-# Basic usage
-osmonitor
-
-# Enable debug logging
-osmonitor --debug
-
-# Customize screenshot directory
-osmonitor --screenshot-dir /path/to/screenshots
-
-# Save timeline to custom location
-osmonitor --timeline-file /path/to/timeline.json
-
-# Output timeline in CSV format
-osmonitor --timeline-format csv
-```
-
-## Project Structure
-
-## Requirements
-
-- macOS 10.15 or later
-- Python 3.8 or later
-- PyObjC
-- pynput
-
-## macOS Permissions Required
-
 This tool requires macOS accessibility permissions to function properly:
 
-### One-time Setup (Recommended)
+### Permission setup 
 
 1. Go to **System Preferences** > **Security & Privacy** > **Privacy** > **Accessibility**
 2. Add your terminal application (Terminal, iTerm2, Ghostty, etc.) to the list
